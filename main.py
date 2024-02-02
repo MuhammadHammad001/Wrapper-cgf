@@ -123,9 +123,9 @@ class Translator:
         #curr_cov --> current coverpoint tag
         #repeat_list --> contains the data of all the { ... }
         #number_brace --> the numbers which are dependent on the brace
-        # print(curr_cov, label, instr, repeat_list, number_brace)
         diff_dict = {}
         diff= 0
+        instr_list = []
         for index, val in enumerate(repeat_list):
             splitter = val.replace('{', '').replace('}', '').strip()
             splitter = splitter.split('...')
@@ -140,7 +140,7 @@ class Translator:
         for index, (key, value) in enumerate(diff_dict.items()):
             track_dict_braces[index] = [value[0],value[1], value[0]]  #start_value, max_value, current_value -> initialize with start_value
 
-        for i in range(size_loop):
+        for i in range(size_loop+1):
             old = instr
 
             for index, item in enumerate(repeat_list):
@@ -149,19 +149,14 @@ class Translator:
 
             #index of number_brace is linked with the track_dict, so no need for seperate track
             for k in range(len(number_brace)):
-                new=old.replace(number_brace[k], "1")
+                new=old.replace(number_brace[k], str(track_dict_braces[int((number_brace[k])[1:])-1][2]))
                 old = new
             track_dict_braces = self.increment(track_dict_braces)
-            # print(old)
+            instr_list.append(old)
 
-        #     #let's first solve the one which has the highest value so our loop works fine.
-        # while max(diff_list) != 0:
-        #     curr_diff=max(diff_list)
-        #     index_diff = diff_list.index(curr_diff)
-        #     diff_list[index_diff] = 0 #remove so next time the next largest without distorting the order or list
-        #     # self.curly_braces_solver(instr, index_diff, repeat_list)
+        for instruction in instr_list:
+            self.generator(curr_cov, label, f"{instruction}", 1)
 
-        #logic: we need a nested loop?
     def comma_sep_solver(self, curr_cov, label, comma_sep):
         comma_sep = [cov.strip() for cov in comma_sep[0].split(',')]
         for cov in comma_sep:

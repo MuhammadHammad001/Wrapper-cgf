@@ -1,6 +1,23 @@
 pmp_cfg_locked_write_unrelated:
   config:
   - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
+  csr_comb:
+    (old("pmpcfg0") ^ pmpcfg0)  & ((pmpcfgmsk<<0<<3) == 0x00) & (pmpcfgmsk<<0<<3) == 0x00) and (pmpcfg0 & (pmplckmsk<<0 !=0: 0
+    (old("pmpcfg1") ^ pmpcfg1)  & ((pmpcfgmsk<<1<<3) == 0x00) & (pmpcfgmsk<<1<<3) == 0x00) and (pmpcfg1 & (pmplckmsk<<1 !=0: 0
+    (old("pmpcfg10") ^ pmpcfg10)  & ((pmpcfgmsk<<2<<3) == 0x00) & (pmpcfgmsk<<2<<3) == 0x00) and (pmpcfg10 & (pmplckmsk<<2 !=0: 0
+    (old("pmpcfg11") ^ pmpcfg11)  & ((pmpcfgmsk<<3<<3) == 0x00) & (pmpcfgmsk<<3<<3) == 0x00) and (pmpcfg11 & (pmplckmsk<<3 !=0: 0
+    (old("pmpcfg12") ^ pmpcfg12)  & ((pmpcfgmsk<<0<<3) == 0x00) & (pmpcfgmsk<<0<<3) == 0x00) and (pmpcfg12 & (pmplckmsk<<0 !=0: 0
+    (old("pmpcfg13") ^ pmpcfg13)  & ((pmpcfgmsk<<1<<3) == 0x00) & (pmpcfgmsk<<1<<3) == 0x00) and (pmpcfg13 & (pmplckmsk<<1 !=0: 0
+    (old("pmpcfg14") ^ pmpcfg14)  & ((pmpcfgmsk<<2<<3) == 0x00) & (pmpcfgmsk<<2<<3) == 0x00) and (pmpcfg14 & (pmplckmsk<<2 !=0: 0
+    (old("pmpcfg15") ^ pmpcfg15)  & ((pmpcfgmsk<<3<<3) == 0x00) & (pmpcfgmsk<<3<<3) == 0x00) and (pmpcfg15 & (pmplckmsk<<3 !=0: 0
+    (old("pmpcfg2") ^ pmpcfg2)  & ((pmpcfgmsk<<2<<3) == 0x00) & (pmpcfgmsk<<2<<3) == 0x00) and (pmpcfg2 & (pmplckmsk<<2 !=0: 0
+    (old("pmpcfg3") ^ pmpcfg3)  & ((pmpcfgmsk<<3<<3) == 0x00) & (pmpcfgmsk<<3<<3) == 0x00) and (pmpcfg3 & (pmplckmsk<<3 !=0: 0
+    (old("pmpcfg4") ^ pmpcfg4)  & ((pmpcfgmsk<<0<<3) == 0x00) & (pmpcfgmsk<<0<<3) == 0x00) and (pmpcfg4 & (pmplckmsk<<0 !=0: 0
+    (old("pmpcfg5") ^ pmpcfg5)  & ((pmpcfgmsk<<1<<3) == 0x00) & (pmpcfgmsk<<1<<3) == 0x00) and (pmpcfg5 & (pmplckmsk<<1 !=0: 0
+    (old("pmpcfg6") ^ pmpcfg6)  & ((pmpcfgmsk<<2<<3) == 0x00) & (pmpcfgmsk<<2<<3) == 0x00) and (pmpcfg6 & (pmplckmsk<<2 !=0: 0
+    (old("pmpcfg7") ^ pmpcfg7)  & ((pmpcfgmsk<<3<<3) == 0x00) & (pmpcfgmsk<<3<<3) == 0x00) and (pmpcfg7 & (pmplckmsk<<3 !=0: 0
+    (old("pmpcfg8") ^ pmpcfg8)  & ((pmpcfgmsk<<0<<3) == 0x00) & (pmpcfgmsk<<0<<3) == 0x00) and (pmpcfg8 & (pmplckmsk<<0 !=0: 0
+    (old("pmpcfg9") ^ pmpcfg9)  & ((pmpcfgmsk<<1<<3) == 0x00) & (pmpcfgmsk<<1<<3) == 0x00) and (pmpcfg9 & (pmplckmsk<<1 !=0: 0
   mnemonics:
     csrrs: 0
     csrrw: 0
