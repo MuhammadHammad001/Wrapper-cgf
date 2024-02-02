@@ -12,3 +12,5 @@ pmp_cfg_locked_write_unrelated:
   csr_comb:
     (old("pmpcfg{0 ... 15}") ^ pmpcfg$1)  & ((pmpcfgmsk<<{0 ... 3}<<3) == 0x00) & (pmpcfgmsk<<{0 ... 3}<<3) == 0x00) and (pmpcfg$1 & (pmplckmsk<<$2 !=0 : 0 #make sure writes are ignored if lockbit=1
     #(old("pmpaddr{0 ... 63}" == pmpaddr$1)                                    and (pmpcfg{$1>>2} & (pmplckmsk<<{($1&3)<<3}) !=0 : 0 #make sure writes are ignored if lockbit=1
+  val_comb:
+    'rs1_val == 0x0': 0

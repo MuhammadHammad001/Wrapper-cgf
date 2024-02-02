@@ -158,7 +158,7 @@ class Translator:
             self.generator(curr_cov, label, f"{instruction}", 1)
 
     def comma_sep_solver(self, curr_cov, label, comma_sep):
-        comma_sep = [cov.strip() for cov in comma_sep[0].split(',')]
+        comma_sep = [cov.strip() for cov in comma_sep[0][1:-1].split(',')]
         for cov in comma_sep:
             self.generator(curr_cov, label, cov, 1)
 

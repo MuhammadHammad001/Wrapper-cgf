@@ -21,6 +21,7 @@ pmp_cfg_locked_write_unrelated:
   mnemonics:
     csrrs: 0
     csrrw: 0
-    csrrw}: 0
+    lw: 0
     sw: 0
-    '{lw': 0
+  val_comb:
+    rs1_val == 0x0: 0
