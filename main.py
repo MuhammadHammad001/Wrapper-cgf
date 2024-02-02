@@ -26,13 +26,16 @@ in that line/coverpoint.
 4. {value1, value 2, value3} Anything written this way will be repeated as a coverpoint depending 
 upon the values written in the {} curly brackets. So, this may be considered as a loop.
     example: consider a coverpoint written in the following fashion:
-            {lw, sw, csrrs, csrrw, csrrc}: 0
-    So, it will be translated as:
+            "{lw, sw, csrrs, csrrw, csrrc}": 0
+            "{(rs1_val && 0x60 == 0x00),(rs2_val && 0x023 == 0)}" : 0
+    So, it will be translated as for the first coverpoint:
             lw: 0
             sw: 0
-    And, so on. Someone, may even write all the coverpoints in the curly braces and they will be
-    translated like:
-            {"'(pmpcfg0 >> 8) == 0': 0", "'(pmpcfg4 >> 4) == 0': 0"}
+            csrrw: 0
+            csrrs: 0
+    And for the second coverpoint:
+            (rs1_val && 0x60 == 0x00): 0
+            (rs2_val && 0x23 == 0x00): 0}
 ****************************************************************************************************
 '''
 
@@ -85,6 +88,8 @@ class Translator:
                     if def_rule in braces:
                         braces.remove(def_rule)
 
+                #assign the braces to the comma seperated variable
+                comma_sep_list = braces
                 # print(instr)
                 # print(repeat_list)
                 # print(number_brace)
@@ -93,14 +98,15 @@ class Translator:
                 #Now if we have neither of the rule matches we will
                 #generate the coverpoint using the generator
                 if len(repeat_list) == 0 and len(number_brace) == 0 and len(braces) == 0:
-                    rule = 1
-                    self.generator(curr_cov, label, instr, rule)
+                    self.generator(curr_cov, label, instr, 1)
                 #Now, start by solving the brackets with ...
                 elif len(repeat_list) != 0:
                     self.curly_braces_solver(instr, repeat_list)
+                #For the case of comma seperated coverpoints/variables in {} curly braces
+                elif len(comma_sep_list) != 0:
+                    self.comma_sep_solver(curr_cov, label, comma_sep_list)
         else:
-            rule = 0
-            self.generator(curr_cov, label, line, rule)
+            self.generator(curr_cov, label, line, 0)
 
     #This function will solve in straight order, in order to maintain the order.
     def curly_braces_solver(self, instr, repeat_list):
@@ -114,7 +120,14 @@ class Translator:
             curr_diff=max(diff_list)
             index_diff = diff_list.index(curr_diff)
             diff_list[index_diff] = 0 #remove so next time the next largest without distorting the order or list
-            self.curly_braces_solver(instr, index_diff, repeat_list)
+            # self.curly_braces_solver(instr, index_diff, repeat_list)
+
+    def comma_sep_solver(self, curr_cov, label, comma_sep):
+        comma_sep = [cov.strip() for cov in comma_sep[0].split(',')]
+        print(comma_sep)
+
+        for cov in comma_sep:
+            self.generator(curr_cov, label, cov, 1)
 
     def generator(self, curr_cov, label, line, rule):
         if rule == 0:
@@ -144,8 +157,8 @@ class Translator:
         # print(yaml_data)
         self.dump_data(output_path, self.data_yaml)
 if __name__ == "__main__":
-    defs_path = '/home/hammad/wrapper_cgf/config.defs'
-    cgf_path  = '/home/hammad/wrapper_cgf/output.cgf'
+    defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
+    cgf_path  = '/home/hammad/wrapper_cgf/Wrapper-cgf/output.cgf'
     trans = Translator()
     trans.translate(defs_path, cgf_path)
 
