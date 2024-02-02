@@ -2,7 +2,8 @@ pmp_cfg_locked_write_unrelated:
   config:
   - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
   mnemonics:
-    (rs1_val && 0x00 == 0x00): 0
-    (rs2_val && 0x023 == 0): 0
     csrrs: 0
     csrrw: 0
+    csrrw}: 0
+    sw: 0
+    '{lw': 0

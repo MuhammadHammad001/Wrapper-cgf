@@ -22,6 +22,10 @@ in that line/coverpoint.
             Note: This is just for an example.
     So, in this case, pmpcfg$1 refers to the current value being used in the pmpcfg{0 ... 10} and
     pmpcfg$2 refers to the current value being used in the pmpcfg{5 ... 8}
+    Note:
+        You can't use the coverpoint like pmpcfg{0,1,2} to generate three coverpoints with registers
+        pmpcfg0,pmpcfg1,pmpcfg2. Even if you want to generate two coverpoints, you need to follow the
+        pattern like pmpcfg{0 ... 1}.
 
 4. {value1, value 2, value3} Anything written this way will be repeated as a coverpoint depending 
 upon the values written in the {} curly brackets. So, this may be considered as a loop.
@@ -35,7 +39,7 @@ upon the values written in the {} curly brackets. So, this may be considered as 
             csrrs: 0
     And for the second coverpoint:
             (rs1_val && 0x60 == 0x00): 0
-            (rs2_val && 0x23 == 0x00): 0}
+            (rs2_val && 0x23 == 0x00): 0
 ****************************************************************************************************
 '''
 
@@ -43,9 +47,9 @@ class Translator:
     def __init__(self):
         self.defs_data = None
         self.data_yaml = None
-        self.braces_finder = re.compile(r'{(.*?)}')
+        self.braces_finder = re.compile(r'({.*?})')
         self.macro_def_finder = re.compile(r'\${(.*?)}') # To ignore any such definition
-        self.number_brace_finder = re.compile(r'\$(\d*)')
+        self.number_brace_finder = re.compile(r'(\$\d*)')
 
     def file_handler(self, input_path):
         with open(input_path, 'r') as file:
@@ -99,33 +103,53 @@ class Translator:
                 #generate the coverpoint using the generator
                 if len(repeat_list) == 0 and len(number_brace) == 0 and len(braces) == 0:
                     self.generator(curr_cov, label, instr, 1)
-                #Now, start by solving the brackets with ...
-                elif len(repeat_list) != 0:
-                    self.curly_braces_solver(instr, repeat_list)
                 #For the case of comma seperated coverpoints/variables in {} curly braces
                 elif len(comma_sep_list) != 0:
                     self.comma_sep_solver(curr_cov, label, comma_sep_list)
+                #*Needs improvement ->
+                #as our current instruction now needs to depend on the
+                #self.data_yaml not on the ones given in the input file. 
+                #Now, start by solving the brackets with ...
+                elif len(repeat_list) != 0:
+                    self.curly_braces_solver(curr_cov, label, instr, repeat_list, number_brace)
         else:
             self.generator(curr_cov, label, line, 0)
 
-    #This function will solve in straight order, in order to maintain the order.
-    def curly_braces_solver(self, instr, repeat_list):
-        diff_list = []
+    #This function will solve all the  curly braces and the $ numbers in parallel. So, their coverpoints will be generated
+    #using this function.
+    def curly_braces_solver(self, curr_cov, label, instr, repeat_list, number_brace):
+        #instr --> current specific instruction coverpoint under observation
+        #label --> label of the coverpoint
+        #curr_cov --> current coverpoint tag
+        #repeat_list --> contains the data of all the { ... }
+        #number_brace --> the numbers which are dependent on the brace
+        # print(curr_cov, label, instr, repeat_list, number_brace)
+        diff_dict = {}
         for val in repeat_list:
-            splitter = val.split('...')
+            splitter = val.replace('{', '').replace('}', '').strip()
+            splitter = splitter.split('...')
             diff = int(splitter[1]) - int(splitter[0])
-            diff_list.append(diff)              
-            #let's first solve the one which has the highest value so our loop works fine.
-        while max(diff_list) != 0:
-            curr_diff=max(diff_list)
-            index_diff = diff_list.index(curr_diff)
-            diff_list[index_diff] = 0 #remove so next time the next largest without distorting the order or list
-            # self.curly_braces_solver(instr, index_diff, repeat_list)
+            diff_dict[diff] =  (int(splitter[0]), int(splitter[1]))
+        size_loop = max(diff_dict)
+        print(repeat_list)
+        for i in range(size_loop):
+            new = instr
+            for item in repeat_list:
+                new=new.replace(item,"0")
+                # print(new)
+            for k in range(len(number_brace)):
+                new=instr.replace(number_brace[k], "1")
+            print(new)
+        #     #let's first solve the one which has the highest value so our loop works fine.
+        # while max(diff_list) != 0:
+        #     curr_diff=max(diff_list)
+        #     index_diff = diff_list.index(curr_diff)
+        #     diff_list[index_diff] = 0 #remove so next time the next largest without distorting the order or list
+        #     # self.curly_braces_solver(instr, index_diff, repeat_list)
 
+        #logic: we need a nested loop?
     def comma_sep_solver(self, curr_cov, label, comma_sep):
         comma_sep = [cov.strip() for cov in comma_sep[0].split(',')]
-        print(comma_sep)
-
         for cov in comma_sep:
             self.generator(curr_cov, label, cov, 1)
 
@@ -156,6 +180,12 @@ class Translator:
         }
         # print(yaml_data)
         self.dump_data(output_path, self.data_yaml)
+
+    #helper functions
+    def increment(self, value,restart_value, max_value):
+        if value >= max_value:
+            return restart_value
+        return (value+1)
 if __name__ == "__main__":
     defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
     cgf_path  = '/home/hammad/wrapper_cgf/Wrapper-cgf/output.cgf'
