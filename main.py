@@ -1,7 +1,6 @@
 #Translator -- defs(cgf/yaml based file --> cgf)
 import yaml
 import re
-import multiprocessing as mp
 '''
 *********************************************RULES****************************************************
 1. {start_digit ... end_digit} Anything written within these curly brackets with some 
@@ -40,6 +39,8 @@ upon the values written in the {} curly brackets. So, this may be considered as 
     And for the second coverpoint:
             (rs1_val && 0x60 == 0x00): 0
             (rs2_val && 0x23 == 0x00): 0
+    Note:
+        You can't use the coverpoints which need to be enumerated in 4th point format.
 ****************************************************************************************************
 '''
 
@@ -91,13 +92,7 @@ class Translator:
                 for def_rule in repeat_list:
                     if def_rule in braces:
                         braces.remove(def_rule)
-
-                #assign the braces to the comma seperated variable
                 comma_sep_list = braces
-                # print(instr)
-                # print(repeat_list)
-                # print(number_brace)
-                # print(braces)
 
                 #Now if we have neither of the rule matches we will
                 #generate the coverpoint using the generator
@@ -106,10 +101,6 @@ class Translator:
                 #For the case of comma seperated coverpoints/variables in {} curly braces
                 elif len(comma_sep_list) != 0:
                     self.comma_sep_solver(curr_cov, label, comma_sep_list)
-                #*Needs improvement ->
-                #as our current instruction now needs to depend on the
-                #self.data_yaml not on the ones given in the input file. 
-                #Now, start by solving the brackets with ...
                 elif len(repeat_list) != 0:
                     self.curly_braces_solver(curr_cov, label, instr, repeat_list, number_brace)
         else:
@@ -175,21 +166,7 @@ class Translator:
     def translate(self, input_path, output_path):
         self.file_handler(input_path)
         self.evaluate_cp()
-        yaml_data = {
-            'pmp_cfg_locked_write_unrelated': {
-                'config': [
-                    {'check': 'ISA:=regex(.*32.*);', 'check': 'ISA:=regex(.*I.*Zicsr.*);', 'def': 'rvtest_mtrap_routine=True;'}
-                ],
-                'mnemonics': {'csrrw': 0, 'csrrs': 0},
-                'csr_comb': {
-                    "(old('pmpcfg{ 0..15}') ^ pmpcfg$1)  & ((pmpcfgmsk<<{0..3}<<3) == 0x00) and (pmpcfg$1 & (pmplckmsk<<$2 !=0)" : 0,
-                    "(old('pmpaddr{0..63}' == pmpaddr$1) and (pmpcfg{$1>>2} & (pmplckmsk<<{($1&3)<<3}) !=0)" : 0
-                }
-            }
-        }
-        # print(yaml_data)
         self.dump_data(output_path, self.data_yaml)
-
     #helper functions
     #Takes a dictionary in the form {index: [start, end, current]} and just need to update
     def increment(self, dict_to_update):
@@ -201,6 +178,8 @@ class Translator:
                 del value[2]
                 value.append(value[0])
         return dict_to_update
+
+
 if __name__ == "__main__":
     defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
     cgf_path  = '/home/hammad/wrapper_cgf/Wrapper-cgf/output.cgf'
