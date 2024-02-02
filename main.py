@@ -125,21 +125,35 @@ class Translator:
         #number_brace --> the numbers which are dependent on the brace
         # print(curr_cov, label, instr, repeat_list, number_brace)
         diff_dict = {}
-        for val in repeat_list:
+        diff= 0
+        for index, val in enumerate(repeat_list):
             splitter = val.replace('{', '').replace('}', '').strip()
             splitter = splitter.split('...')
-            diff = int(splitter[1]) - int(splitter[0])
-            diff_dict[diff] =  (int(splitter[0]), int(splitter[1]))
-        size_loop = max(diff_dict)
-        print(repeat_list)
+            diff_calc = int(splitter[1]) - int(splitter[0])
+            diff_dict[index] =  (int(splitter[0]), int(splitter[1]))
+            if diff_calc > diff:
+                diff = diff_calc
+
+        size_loop = diff
+        track_dict_braces = {}
+
+        for index, (key, value) in enumerate(diff_dict.items()):
+            track_dict_braces[index] = [value[0],value[1], value[0]]  #start_value, max_value, current_value -> initialize with start_value
+
         for i in range(size_loop):
-            new = instr
-            for item in repeat_list:
-                new=new.replace(item,"0")
-                # print(new)
+            old = instr
+
+            for index, item in enumerate(repeat_list):
+                new=old.replace(item,str(track_dict_braces[index][2]))  #replace with the current value
+                old = new
+
+            #index of number_brace is linked with the track_dict, so no need for seperate track
             for k in range(len(number_brace)):
-                new=instr.replace(number_brace[k], "1")
-            print(new)
+                new=old.replace(number_brace[k], "1")
+                old = new
+            track_dict_braces = self.increment(track_dict_braces)
+            # print(old)
+
         #     #let's first solve the one which has the highest value so our loop works fine.
         # while max(diff_list) != 0:
         #     curr_diff=max(diff_list)
@@ -182,10 +196,16 @@ class Translator:
         self.dump_data(output_path, self.data_yaml)
 
     #helper functions
-    def increment(self, value,restart_value, max_value):
-        if value >= max_value:
-            return restart_value
-        return (value+1)
+    #Takes a dictionary in the form {index: [start, end, current]} and just need to update
+    def increment(self, dict_to_update):
+        for key, value in dict_to_update.items():
+            if value[2] < value[1]: #current value reached the max
+                new_value = value.pop(2)
+                value.append(new_value+1)               
+            else:
+                del value[2]
+                value.append(value[0])
+        return dict_to_update
 if __name__ == "__main__":
     defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
     cgf_path  = '/home/hammad/wrapper_cgf/Wrapper-cgf/output.cgf'
