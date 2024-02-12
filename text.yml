@@ -5,11 +5,11 @@ pmp_cfg_locked_write_unrelated:
   config:
     - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
   mnemonics:
+    csrrs: 0
     csrrw: 0
-    "{lw, sw, ${csrrs}, csrrw}": 0
-  csr_comb:  
-    mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
-    (pmpcfg0    & 0x80 == ${value}) and (old("pmpaddr{0 ... 3}")) ^ (pmpaddr$1) == 0x00: 0
+    "{lw, sw, csrrs, csrrw}": 0
+  csr_comb:
+    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr{0 ... 3}")) ^ (pmpaddr$1) == 0x00: 0
     (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr{4 ... 7}")) ^ (pmpaddr$1) == 0x00: 0
     (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr{8 ... 11}")) ^ (pmpaddr$1) == 0x00: 0
     (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr{12 ... 15}")) ^ (pmpaddr$1) == 0x00: 0

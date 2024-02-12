@@ -48,9 +48,12 @@ class Translator:
     def __init__(self):
         self.defs_data = None
         self.data_yaml = None
+        self.macros    = None
+
         self.braces_finder = re.compile(r'({.*?})')
-        self.macro_def_finder = re.compile(r'\${(.*?)}') # To ignore any such definition
-        self.number_brace_finder = re.compile(r'(\$\d*)')
+        self.macro_def_finder = re.compile(r'(\${.*?})') # To ignore any such definition
+        self.number_brace_finder = re.compile(r'(\$\d+)')
+        self.macro_brace_resolver = re.compile(r'(\%\d+)')
 
     def file_handler(self, input_path):
         with open(input_path, 'r') as file:
@@ -77,13 +80,16 @@ class Translator:
         if type(line) == dict:
             for instr, values in line.items():                
                 repeat_list = []
-                braces = self.braces_finder.findall(instr)
                 macros = self.macro_def_finder.findall(instr)     
-                number_brace = self.number_brace_finder.findall(instr)          
-                #Remove the macros solved in risc-v isac
-                for def_rule in macros:
-                    if def_rule in braces:
-                        braces.remove(def_rule)
+                self.macros = macros
+                #replace the macros to be solved in RISC-V ISAC with some defined values and replace them back after the process
+                for index, macro in enumerate(macros):
+                    if macro in instr:
+                        instr = instr.replace(macro, f'%{index}')
+
+                braces = self.braces_finder.findall(instr)
+                number_brace = self.number_brace_finder.findall(instr)       
+
                 #Now, let's seperate everything.
                 for val in braces:
                     if "..." in val:
@@ -97,6 +103,7 @@ class Translator:
                 #Now if we have neither of the rule matches we will
                 #generate the coverpoint using the generator
                 if len(repeat_list) == 0 and len(number_brace) == 0 and len(braces) == 0:
+                    instr = self.macro_resolver(instr)
                     self.generator(curr_cov, label, instr, 1)
                 #For the case of comma seperated coverpoints/variables in {} curly braces
                 elif len(comma_sep_list) != 0:
@@ -146,11 +153,13 @@ class Translator:
             instr_list.append(old)
 
         for instruction in instr_list:
-            self.generator(curr_cov, label, f"{instruction}", 1)
+            resolved_instr = self.macro_resolver(instruction)
+            self.generator(curr_cov, label, f"{resolved_instr}", 1)
 
     def comma_sep_solver(self, curr_cov, label, comma_sep):
         comma_sep = [cov.strip() for cov in comma_sep[0][1:-1].split(',')]
         for cov in comma_sep:
+            cov = self.macro_resolver(cov)
             self.generator(curr_cov, label, cov, 1)
 
     def generator(self, curr_cov, label, line, rule):
@@ -167,6 +176,16 @@ class Translator:
         self.file_handler(input_path)
         self.evaluate_cp()
         self.dump_data(output_path, self.data_yaml)
+
+    #This function will replace the macros back in the instruction
+    def macro_resolver(self, instr):
+        if len(self.macros) != 0:
+            replace_macros = self.macro_brace_resolver.findall(instr)
+            for index, value in enumerate(replace_macros):
+                instr = instr.replace(value, self.macros[index])
+
+        return instr
+
     #helper functions
     #Takes a dictionary in the form {index: [start, end, current]} and just need to update
     def increment(self, dict_to_update):

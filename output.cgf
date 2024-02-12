@@ -2,10 +2,10 @@ pmp_cfg_locked_write_unrelated:
   config:
   - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
   csr_comb:
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr0")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr1")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr2")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr3")) ^ (pmpaddr3) == 0x00: 0
+    (pmpcfg0    & 0x80 == ${value}) and (old("pmpaddr0")) ^ (pmpaddr0) == 0x00: 0
+    (pmpcfg0    & 0x80 == ${value}) and (old("pmpaddr1")) ^ (pmpaddr1) == 0x00: 0
+    (pmpcfg0    & 0x80 == ${value}) and (old("pmpaddr2")) ^ (pmpaddr2) == 0x00: 0
+    (pmpcfg0    & 0x80 == ${value}) and (old("pmpaddr3")) ^ (pmpaddr3) == 0x00: 0
     (pmpcfg0    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF))     ^ (pmpcfg0 & (0xFF)) == 0x00: 0
     (pmpcfg0>>16 & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF<<24))  ^ (pmpcfg0 & (0xFF<<24 )) == 0x00: 0
     (pmpcfg0>>24 & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF<<16))  ^ (pmpcfg0 & (0xFF<<16 )) == 0x00: 0
@@ -34,8 +34,9 @@ pmp_cfg_locked_write_unrelated:
     (pmpcfg3>>16 & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF<<24))  ^ (pmpcfg3 & (0xFF<<24 )) == 0x00: 0
     (pmpcfg3>>24 & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF<<16))  ^ (pmpcfg3 & (0xFF<<16 )) == 0x00: 0
     (pmpcfg3>>8 & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF<<8))  ^ (pmpcfg3 & (0xFF<<8 )) == 0x00: 0
+    mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
   mnemonics:
-    csrrs: 0
+    ${csrrs}: 0
     csrrw: 0
     lw: 0
     sw: 0
