@@ -2,22 +2,18 @@ pmp_cfg_locked_write_unrelated:
   config:
   - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
   csr_comb:
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr0")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr1")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr2")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr3")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr4")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr5")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr6")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr7")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr8")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr9")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr10")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr11")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr12")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr13")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr14")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr15")) ^ (pmpaddr3) == 0x00: 0
+    ? (pmpcfg0 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF
+      << {0, 8, 16, 24 *4}))     ^ (pmpcfg0 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
+    : 0
+    ? (pmpcfg1 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF
+      << {0, 8, 16, 24 *4}))     ^ (pmpcfg1 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
+    : 0
+    ? (pmpcfg2 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF
+      << {0, 8, 16, 24 *4}))     ^ (pmpcfg2 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
+    : 0
+    ? (pmpcfg3 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF
+      << {0, 8, 16, 24 *4}))     ^ (pmpcfg3 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
+    : 0
   mnemonics:
     ${csrrs}: 0
     csrrw: 0

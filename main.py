@@ -80,6 +80,7 @@ class Translator:
         line = (self.defs_data[curr_cov][label])
         if type(line) == dict:
             for instr, values in line.items():                
+                cond_comma_loop = False
                 repeat_list = []
                 macros = self.macro_def_finder.findall(instr)     
                 self.macros = macros
@@ -100,23 +101,31 @@ class Translator:
                     if def_rule in braces:
                         braces.remove(def_rule)
                 comma_sep_list = braces
-
+                if len(comma_sep_list) != 0:
+                    if instr == comma_sep_list[0]:
+                        cond_comma_loop = True
+                        comma_sep_list_braces = []
+                    else:
+                        comma_sep_list_braces = braces
                 #Now if we have neither of the rule matches we will
                 #generate the coverpoint using the generator
                 if len(repeat_list) == 0 and len(number_brace) == 0 and len(braces) == 0:
                     instr = self.macro_resolver(instr)
                     self.generator(curr_cov, label, instr, 1)
+
                 #For the case of comma seperated coverpoints/variables in {} curly braces
-                elif len(comma_sep_list) != 0:
+                elif len(comma_sep_list) != 0 and len(number_brace) == 0 and cond_comma_loop == True:
                     self.comma_sep_solver(curr_cov, label, comma_sep_list)
+
                 elif len(repeat_list) != 0:
-                    self.curly_braces_solver(curr_cov, label, instr, repeat_list, number_brace)
+                    self.curly_braces_solver(curr_cov, label, instr, repeat_list, number_brace, comma_sep_list_braces)
+
         else:
             self.generator(curr_cov, label, line, 0)
 
     #This function will solve all the  curly braces and the $ numbers in parallel. So, their coverpoints will be generated
     #using this function.
-    def curly_braces_solver(self, curr_cov, label, instr, repeat_list, number_brace):
+    def curly_braces_solver(self, curr_cov, label, instr, repeat_list, number_brace, comma_sep_list):
         #instr --> current specific instruction coverpoint under observation
         #label --> label of the coverpoint
         #curr_cov --> current coverpoint tag
@@ -136,11 +145,17 @@ class Translator:
 
             splitter = val.replace('{', '').replace('}', '').strip()
             splitter = splitter.split('...')
-            diff_calc = int(splitter[1]) - int(splitter[0])
-            diff_dict[index] =  (int(splitter[0]), int(splitter[1]), int(repeat_repititions))
+
+            if repeat_repititions != 0:
+                diff_calc = (((int(splitter[1])+1)*int(repeat_repititions)) - int(splitter[0]))-1
+                diff_dict[index] =  (int(splitter[0]), int(splitter[1]), int(repeat_repititions))
+            else:
+                diff_calc = ((int(splitter[1])) - int(splitter[0]))
+                diff_dict[index] =  (int(splitter[0]), int(splitter[1]), int(repeat_repititions))
+
             if diff_calc > diff:
                 diff = diff_calc
-
+        
         print("diff_dict = ", diff_dict)
         size_loop = diff
         track_dict_braces = {}
@@ -197,11 +212,14 @@ class Translator:
 
         return instr
 
+    def comma_sep_brace_solver(self, comma_sep_list):
+        pass
+
     #helper functions
     #Takes a dictionary in the form {index: [start, end, current]} and just need to update
     def increment(self, dict_to_update):
         for key, value in dict_to_update.items():
-            if value[4] < value[2]:                     #current repeat value has not reached the max repeat value
+            if value[4] < (value[2] -1):                #current repeat value has not reached the max repeat value
                 new_value = value.pop(4)                #pop the previous current value
                 value.append(new_value+1)               #update with the new value at the end of the list
 
