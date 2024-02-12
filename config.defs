@@ -8,15 +8,26 @@ pmp_cfg_locked_write_unrelated:
     csrrw: 0
     "{lw, sw, ${csrrs}, csrrw}": 0
   csr_comb:  
-    mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
-    (pmpcfg0    & 0x80 == ${value}) and (old("pmpaddr{0 ... 3}")) ^ (pmpaddr$1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr{4 ... 7}")) ^ (pmpaddr$1) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr{8 ... 11}")) ^ (pmpaddr$1) == 0x00: 0
-    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr{12 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
-    (pmpcfg{0 ... 3}    & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF))     ^ (pmpcfg$1 & (0xFF)) == 0x00: 0
-    (pmpcfg{0 ... 3}>>8 & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF<<8))  ^ (pmpcfg$1 & (0xFF<<8 )) == 0x00: 0
-    (pmpcfg{0 ... 3}>>24 & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF<<16))  ^ (pmpcfg$1 & (0xFF<<16 )) == 0x00: 0
-    (pmpcfg{0 ... 3}>>16 & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF<<24))  ^ (pmpcfg$1 & (0xFF<<24 )) == 0x00: 0
+#    mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
+# The most compact coverpoint for the following 4 will look something like:
+
+     (pmpcfg{0 ... 3 *4}    & 0x80 == 0x80) and (old("pmpaddr{0 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
+
+
+#    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr{0 ... 3}")) ^ (pmpaddr$1) == 0x00: 0
+#    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr{4 ... 7}")) ^ (pmpaddr$1) == 0x00: 0
+#    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr{8 ... 11}")) ^ (pmpaddr$1) == 0x00: 0
+#    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr{12 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
+
+# The most compact coverpoint for the following 4 will look something like:
+
+#     (pmpcfg{0 ... 3 *4} >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF << {0, 8, 16, 24 *4}))     ^ (pmpcfg$1 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00: 0
+
+
+#    (pmpcfg{0 ... 3}    & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF))     ^ (pmpcfg$1 & (0xFF)) == 0x00: 0
+#    (pmpcfg{0 ... 3}>>8 & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF<<8))  ^ (pmpcfg$1 & (0xFF<<8 )) == 0x00: 0
+#    (pmpcfg{0 ... 3}>>16 & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF<<16))  ^ (pmpcfg$1 & (0xFF<<16 )) == 0x00: 0
+#    (pmpcfg{0 ... 3}>>24 & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF<<24))  ^ (pmpcfg$1 & (0xFF<<24 )) == 0x00: 0
 
   val_comb:
     'rs1_val == 0x0': 0

@@ -50,10 +50,11 @@ class Translator:
         self.data_yaml = None
         self.macros    = None
 
-        self.braces_finder = re.compile(r'({.*?})')
-        self.macro_def_finder = re.compile(r'(\${.*?})') # To ignore any such definition
-        self.number_brace_finder = re.compile(r'(\$\d+)')
-        self.macro_brace_resolver = re.compile(r'(\%\d+)')
+        self.braces_finder          = re.compile(r'({.*?})')
+        self.macro_def_finder       = re.compile(r'(\${.*?})') # To ignore any such definition
+        self.number_brace_finder    = re.compile(r'(\$\d+)')
+        self.macro_brace_resolver   = re.compile(r'(\%\d+)')
+        self.repeat_brace_index     = re.compile(r'(\*\d+)')
 
     def file_handler(self, input_path):
         with open(input_path, 'r') as file:
@@ -124,30 +125,40 @@ class Translator:
         diff_dict = {}
         diff= 0
         instr_list = []
+        print("repeat list = ", repeat_list)
+        repeat_brace_index = self.repeat_brace_index.findall(instr)
         for index, val in enumerate(repeat_list):
+            repeat_repititions = 0
+            for repeat in repeat_brace_index:
+                if repeat in val:
+                    repeat_repititions = repeat.replace('*', '')
+                    val = val.replace(repeat, '')
+
             splitter = val.replace('{', '').replace('}', '').strip()
             splitter = splitter.split('...')
             diff_calc = int(splitter[1]) - int(splitter[0])
-            diff_dict[index] =  (int(splitter[0]), int(splitter[1]))
+            diff_dict[index] =  (int(splitter[0]), int(splitter[1]), int(repeat_repititions))
             if diff_calc > diff:
                 diff = diff_calc
 
+        print("diff_dict = ", diff_dict)
         size_loop = diff
         track_dict_braces = {}
 
         for index, (key, value) in enumerate(diff_dict.items()):
-            track_dict_braces[index] = [value[0],value[1], value[0]]  #start_value, max_value, current_value -> initialize with start_value
+            track_dict_braces[index] = [value[0],value[1], value[2], value[0], value[0]]  #start_value, max_value, repeat_count, current_value, current_repeat_value -> initialize with start_value
 
+        print("track_dict_braces  =", track_dict_braces)
         for i in range(size_loop+1):
             old = instr
 
             for index, item in enumerate(repeat_list):
-                new=old.replace(item,str(track_dict_braces[index][2]))  #replace with the current value
+                new=old.replace(item,str(track_dict_braces[index][3]))  #replace with the current value
                 old = new
 
             #index of number_brace is linked with the track_dict, so no need for seperate track
             for k in range(len(number_brace)):
-                new=old.replace(number_brace[k], str(track_dict_braces[int((number_brace[k])[1:])-1][2]))
+                new=old.replace(number_brace[k], str(track_dict_braces[int((number_brace[k])[1:])-1][3]))
                 old = new
             track_dict_braces = self.increment(track_dict_braces)
             instr_list.append(old)
@@ -190,12 +201,22 @@ class Translator:
     #Takes a dictionary in the form {index: [start, end, current]} and just need to update
     def increment(self, dict_to_update):
         for key, value in dict_to_update.items():
-            if value[2] < value[1]: #current value reached the max
-                new_value = value.pop(2)
-                value.append(new_value+1)               
-            else:
-                del value[2]
-                value.append(value[0])
+            if value[4] < value[2]:                     #current repeat value has not reached the max repeat value
+                new_value = value.pop(4)                #pop the previous current value
+                value.append(new_value+1)               #update with the new value at the end of the list
+
+            else:                                       #current repeat value >= max repeat value
+                if value[3] < value[1]:                 #current value < max_value
+                    del value[4]                        #delete the value of current_repeat_value
+                    new_value = value.pop(3)            #delete the current value
+                    value.append(new_value+1)           #Update the current value by 1
+                    value.append(value[0])              #change the current_repeat_value to zero
+                else:
+                    del value[4]                        #delete the value of current_repeat_value
+                    new_value = value.pop(3)            #delete the current value
+                    value.append(value[0])              #change the current_value to zero
+                    value.append(value[0])              #change the current_repeat_value to zero
+
         return dict_to_update
 
 
