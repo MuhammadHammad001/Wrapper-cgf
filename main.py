@@ -164,6 +164,14 @@ class Translator:
             track_dict_braces[index] = [value[0],value[1], value[2], value[0], value[0]]  #start_value, max_value, repeat_count, current_value, current_repeat_value -> initialize with start_value
 
         print("track_dict_braces  =", track_dict_braces)
+        print("number_brace = ", number_brace)
+
+        #Now, solve the comma_seperated_braces
+        resolved_comma_sep_dict = {}
+        if len(comma_sep_list) != 0:
+            for ind, val in enumerate(comma_sep_list):
+                resolved_comma_sep_dict[ind] = self.comma_sep_brace_solver(val)
+
         for i in range(size_loop+1):
             old = instr
 
@@ -176,6 +184,9 @@ class Translator:
                 new=old.replace(number_brace[k], str(track_dict_braces[int((number_brace[k])[1:])-1][3]))
                 old = new
             track_dict_braces = self.increment(track_dict_braces)
+
+            #Now, let's keep track of the macro_sep_dict
+
             instr_list.append(old)
 
         for instruction in instr_list:
@@ -213,7 +224,26 @@ class Translator:
         return instr
 
     def comma_sep_brace_solver(self, comma_sep_list):
-        pass
+        repeat_brace_index = self.repeat_brace_index.findall(comma_sep_list)
+        repeat_len = 0
+        if repeat_brace_index:
+            repeat_len = int(repeat_brace_index[0].replace('*', ''))
+            comma_sep_list = comma_sep_list.replace(repeat_brace_index[0], '')
+        comma_sep = [cov.strip() for cov in comma_sep_list[1:-1].split(',')]
+
+        return_list = []
+        curr_val = 0
+        curr_index = 0
+        for index in range(len(comma_sep)*repeat_len):
+            if curr_val < (repeat_len -1):
+                curr_val +=1
+                return_list.append(comma_sep[curr_index])
+            else:
+                return_list.append(comma_sep[curr_index])
+                curr_val = 0
+                curr_index +=1
+
+        return return_list        
 
     #helper functions
     #Takes a dictionary in the form {index: [start, end, current]} and just need to update
