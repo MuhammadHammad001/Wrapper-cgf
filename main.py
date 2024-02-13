@@ -41,6 +41,23 @@ upon the values written in the {} curly brackets. So, this may be considered as 
             (rs2_val && 0x23 == 0x00): 0
     Note:
         You can't use the coverpoints which need to be enumerated in 4th point format.
+
+5. {val1, val2, end_val *number_of_time} is  to be used in the
+    coverpoints not independently like in the point 4(as there will be no purpose because it will
+    repeat)
+    Example:
+            (pmpcfg{0 ... 3} >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) == 0x00: 0
+    Now, {0, 8, 16, 24 *4} will be enumerated such that {0,0,0,0,8,8,8,8,.....,24,24,24,24}
+    Note:
+        $number functionality is only available for the point 1 and 4 and can not be used with point 5 and
+        6 to avoid complexity.
+
+6. {val1 ... end_val *number_of_time} This is simply the advanced version of point 1. So, we can repeat
+    the each value that comes in the loop multiple time. 
+    Example:
+        (pmpcfg{0 ... 3 *4}    & 0x80 == 0x80) and (old("pmpaddr{0 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
+    So {0 ... 3 *4} will be repeated such that {0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3}
+
 ****************************************************************************************************
 '''
 
@@ -242,14 +259,17 @@ class Translator:
         return_list = []
         curr_val = 0
         curr_index = 0
-        for index in range(len(comma_sep)*repeat_len):
-            if curr_val < (repeat_len -1):
-                curr_val +=1
-                return_list.append(comma_sep[curr_index])
-            else:
-                return_list.append(comma_sep[curr_index])
-                curr_val = 0
-                curr_index +=1
+        if repeat_brace_index:
+            for index in range(len(comma_sep)*repeat_len):
+                if curr_val < (repeat_len -1):
+                    curr_val +=1
+                    return_list.append(comma_sep[curr_index])
+                else:
+                    return_list.append(comma_sep[curr_index])
+                    curr_val = 0
+                    curr_index +=1
+        else:
+            return comma_sep
 
         return return_list        
 
@@ -277,13 +297,13 @@ class Translator:
 
     def increment_comma(self, dict_to_update):
         for key, value in dict_to_update.items():
-            if (value[1] < value[0]):
+            if (value[1] < (value[0] -1)):
                 new_value = value.pop(1)
                 value.append(new_value+1)
             else:
                 del value[1]
                 value.append(0)                        #start from index 0
-        
+
         return dict_to_update
 if __name__ == "__main__":
     defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
