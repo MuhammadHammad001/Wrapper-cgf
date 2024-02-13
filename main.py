@@ -107,6 +107,8 @@ class Translator:
                         comma_sep_list_braces = []
                     else:
                         comma_sep_list_braces = braces
+                else:
+                    comma_sep_list_braces = []
                 #Now if we have neither of the rule matches we will
                 #generate the coverpoint using the generator
                 if len(repeat_list) == 0 and len(number_brace) == 0 and len(braces) == 0:
@@ -134,8 +136,8 @@ class Translator:
         diff_dict = {}
         diff= 0
         instr_list = []
-        print("repeat list = ", repeat_list)
         repeat_brace_index = self.repeat_brace_index.findall(instr)
+
         for index, val in enumerate(repeat_list):
             repeat_repititions = 0
             for repeat in repeat_brace_index:
@@ -155,38 +157,44 @@ class Translator:
 
             if diff_calc > diff:
                 diff = diff_calc
-        
-        print("diff_dict = ", diff_dict)
-        size_loop = diff
-        track_dict_braces = {}
-
-        for index, (key, value) in enumerate(diff_dict.items()):
-            track_dict_braces[index] = [value[0],value[1], value[2], value[0], value[0]]  #start_value, max_value, repeat_count, current_value, current_repeat_value -> initialize with start_value
-
-        print("track_dict_braces  =", track_dict_braces)
-        print("number_brace = ", number_brace)
-
         #Now, solve the comma_seperated_braces
         resolved_comma_sep_dict = {}
         if len(comma_sep_list) != 0:
             for ind, val in enumerate(comma_sep_list):
                 resolved_comma_sep_dict[ind] = self.comma_sep_brace_solver(val)
+        size_loop = diff
+        for ind, val in resolved_comma_sep_dict.items():
+            size = len(val)
+            if (size_loop) < size:
+                size_loop = size -1
+
+        track_dict_braces = {}
+        track_dict_comma = {}
+
+        for index, (key, value) in enumerate(diff_dict.items()):
+            track_dict_braces[index] = [value[0],value[1], value[2], value[0], value[0]]  #start_value, max_value, repeat_count, current_value, current_repeat_value -> initialize with start_value
+
+        for index, (key, val) in enumerate(resolved_comma_sep_dict.items()):
+            track_dict_comma[index] = [len(val), 0]                                       #max_index, current index-> start from zero
 
         for i in range(size_loop+1):
             old = instr
 
-            for index, item in enumerate(repeat_list):
-                new=old.replace(item,str(track_dict_braces[index][3]))  #replace with the current value
+            for key, item in enumerate(repeat_list):
+                new=old.replace(item,str(track_dict_braces[key][3]))  #replace with the current value
                 old = new
 
             #index of number_brace is linked with the track_dict, so no need for seperate track
             for k in range(len(number_brace)):
                 new=old.replace(number_brace[k], str(track_dict_braces[int((number_brace[k])[1:])-1][3]))
                 old = new
+            # Now, let's keep track of the macro_sep_dict
+            for index,val in enumerate(comma_sep_list):
+                new = old.replace(val, resolved_comma_sep_dict[index][track_dict_comma[index][1]])
+                old  = new
+
             track_dict_braces = self.increment(track_dict_braces)
-
-            #Now, let's keep track of the macro_sep_dict
-
+            track_dict_comma = self.increment_comma(track_dict_comma)
             instr_list.append(old)
 
         for instruction in instr_list:
@@ -267,7 +275,16 @@ class Translator:
 
         return dict_to_update
 
-
+    def increment_comma(self, dict_to_update):
+        for key, value in dict_to_update.items():
+            if (value[1] < value[0]):
+                new_value = value.pop(1)
+                value.append(new_value+1)
+            else:
+                del value[1]
+                value.append(0)                        #start from index 0
+        
+        return dict_to_update
 if __name__ == "__main__":
     defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
     cgf_path  = '/home/hammad/wrapper_cgf/Wrapper-cgf/output.cgf'

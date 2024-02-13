@@ -2,18 +2,39 @@ pmp_cfg_locked_write_unrelated:
   config:
   - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
   csr_comb:
-    ? (pmpcfg0 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF
-      << {0, 8, 16, 24 *4}))     ^ (pmpcfg0 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
-    : 0
-    ? (pmpcfg1 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF
-      << {0, 8, 16, 24 *4}))     ^ (pmpcfg1 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
-    : 0
-    ? (pmpcfg2 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF
-      << {0, 8, 16, 24 *4}))     ^ (pmpcfg2 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
-    : 0
-    ? (pmpcfg3 >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF
-      << {0, 8, 16, 24 *4}))     ^ (pmpcfg3 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00
-    : 0
+    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr0")) ^ (pmpaddr0) == 0x00: 0
+    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr1")) ^ (pmpaddr0) == 0x00: 0
+    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr2")) ^ (pmpaddr0) == 0x00: 0
+    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr3")) ^ (pmpaddr0) == 0x00: 0
+    (pmpcfg0 >> 0    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 0))     ^ (pmpcfg0 & (0xFF >> 0)) == 0x00: 0
+    (pmpcfg0 >> 16    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 16))     ^ (pmpcfg0 & (0xFF >> 16)) == 0x00: 0
+    (pmpcfg0 >> 24    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 24))     ^ (pmpcfg0 & (0xFF >> 24)) == 0x00: 0
+    (pmpcfg0 >> 8    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 8))     ^ (pmpcfg0 & (0xFF >> 8)) == 0x00: 0
+    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr4")) ^ (pmpaddr1) == 0x00: 0
+    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr5")) ^ (pmpaddr1) == 0x00: 0
+    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr6")) ^ (pmpaddr1) == 0x00: 0
+    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr7")) ^ (pmpaddr1) == 0x00: 0
+    (pmpcfg1 >> 0    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 0))     ^ (pmpcfg1 & (0xFF >> 0)) == 0x00: 0
+    (pmpcfg1 >> 16    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 16))     ^ (pmpcfg1 & (0xFF >> 16)) == 0x00: 0
+    (pmpcfg1 >> 24    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 24))     ^ (pmpcfg1 & (0xFF >> 24)) == 0x00: 0
+    (pmpcfg1 >> 8    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 8))     ^ (pmpcfg1 & (0xFF >> 8)) == 0x00: 0
+    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr10")) ^ (pmpaddr2) == 0x00: 0
+    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr11")) ^ (pmpaddr2) == 0x00: 0
+    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr8")) ^ (pmpaddr2) == 0x00: 0
+    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr9")) ^ (pmpaddr2) == 0x00: 0
+    (pmpcfg2 >> 0    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 0))     ^ (pmpcfg2 & (0xFF >> 0)) == 0x00: 0
+    (pmpcfg2 >> 16    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 16))     ^ (pmpcfg2 & (0xFF >> 16)) == 0x00: 0
+    (pmpcfg2 >> 24    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 24))     ^ (pmpcfg2 & (0xFF >> 24)) == 0x00: 0
+    (pmpcfg2 >> 8    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 8))     ^ (pmpcfg2 & (0xFF >> 8)) == 0x00: 0
+    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr12")) ^ (pmpaddr3) == 0x00: 0
+    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr13")) ^ (pmpaddr3) == 0x00: 0
+    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr14")) ^ (pmpaddr3) == 0x00: 0
+    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr15")) ^ (pmpaddr3) == 0x00: 0
+    (pmpcfg3 >> 0    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 0))     ^ (pmpcfg3 & (0xFF >> 0)) == 0x00: 0
+    (pmpcfg3 >> 16    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 16))     ^ (pmpcfg3 & (0xFF >> 16)) == 0x00: 0
+    (pmpcfg3 >> 24    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 24))     ^ (pmpcfg3 & (0xFF >> 24)) == 0x00: 0
+    (pmpcfg3 >> 8    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 8))     ^ (pmpcfg3 & (0xFF >> 8)) == 0x00: 0
+    mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
   mnemonics:
     ${csrrs}: 0
     csrrw: 0
