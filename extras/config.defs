@@ -1,0 +1,20 @@
+#This is simply a comment.
+#---------------------------------------------
+#This the first coverpoint
+pmp_cfg_locked_write_unrelated:
+  config:
+    - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
+  mnemonics:
+    csrrw: 0
+    # Example for using comma_sep brackets as a loop
+    "{lw, sw, ${csrrs}, csrrw}": 0
+  csr_comb:  
+    # Example for using constants in coverpoint
+     mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
+    # Example for using {start_value ... end_value}
+     (pmpcfg{0 ... 3 *4}    & 0x80 == 0x80) and (old("pmpaddr{0 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
+    # Example for using comma_sep_braces
+     (pmpcfg{0 ... 3} >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF << {0, 8, 16, 24 *4}))     ^ (pmpcfg$1 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00: 0
+
+  val_comb:
+    'rs1_val == 0x0': 0
