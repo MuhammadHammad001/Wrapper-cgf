@@ -96,7 +96,7 @@ class Translator:
         #Line contains all the instructions under the label. But, we need a instr at a specific time
         line = (self.defs_data[curr_cov][label])
         if type(line) == dict:
-            for instr, values in line.items():                
+            for instr, values in line.items():    
                 cond_comma_loop = False
                 repeat_list = []
                 macros = self.macro_def_finder.findall(instr)     
@@ -138,7 +138,7 @@ class Translator:
 
                 elif len(repeat_list) != 0:
                     self.curly_braces_solver(curr_cov, label, instr, repeat_list, number_brace, comma_sep_list_braces)
-
+        #if not of interest, skip and simply generate the coverpoint
         else:
             self.generator(curr_cov, label, line, 0)
 

@@ -7,14 +7,18 @@ pmp_cfg_locked_write_unrelated:
   mnemonics:
     csrrw: 0
     # Example for using comma_sep brackets as a loop
-    "{lw, sw, ${csrrs}, csrrw}": 0
+    "{lw, sw, ${csrrs}}": 0
   csr_comb:  
     # Example for using constants in coverpoint
-     mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
+    mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
     # Example for using {start_value ... end_value}
-     (pmpcfg{0 ... 3 *4}    & 0x80 == 0x80) and (old("pmpaddr{0 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
+    (pmpcfg{{0 ... 15} / 2}  & pmpcfg{0 ... 15}   & 0x80 == 0x80) and ${csrrs} and {lw, sw, ${csrrw}} and ${csrrx} and pmpcfg{{0 ... 15} >> 2} and (old("pmpaddr$1"))and (old("pmpaddr$1")) ^ (pmpaddr$2)^ (pmpaddr$3) == 0x00: 0
     # Example for using comma_sep_braces
-     (pmpcfg{0 ... 3} >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF << {0, 8, 16, 24 *4}))     ^ (pmpcfg$1 & (0xFF >> {0, 8, 16, 24 *4})) == 0x00: 0
+    (pmpcfg{0 ... 3} >> {0, 8, 16, 24}    & 0x80 == 0x80) and (old("pmpcfg$1") & (0xFF << $2))     ^ (pmpcfg$1 & (0xFF >> $2)) == 0x00: 0
+
+    #Now, the coverpoint will look something like
+    (pmpcfg{0 ... 3} >> {{5, 4, 6, 8} / 4}    & 0x80 == 0x80): 0
+    "{(rs1_val && 0x60 == 0x00),(${rs2_val} && 0x023 == 0)}" : 0
 
   val_comb:
-    'rs1_val == 0x0': 0
+    rs1_val == 0x0: 0
