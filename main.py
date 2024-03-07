@@ -108,9 +108,9 @@ class Translator:
 
     def evaluate_cp(self):
         """Evaluate coverpoints based on the loaded YAML data."""
-        self.data_yaml = None
+        self.data_yaml = {}
         for curr_cov in self.defs_data:
-            self.data_yaml = {curr_cov: {}}
+            self.data_yaml[curr_cov] = {}  # Initialize a new coverpoint dictionary for current coverage point
             for label in self.defs_data[curr_cov]:
                 self.finder(curr_cov,label)
 
@@ -401,7 +401,7 @@ class Translator:
 
         gen_cov_list = []
 
-        for index in range(max_len):
+        for _ in range(max_len):
             
             # Generate coverpoint for current track
             out_cov = self.generate_current_cov(instr, track_dict, replacement_dict, place_holder_pattern)
