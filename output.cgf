@@ -2,38 +2,73 @@ pmp_cfg_locked_write_unrelated:
   config:
   - check ISA:=regex(.*32.*); check ISA:=regex(.*I.*Zicsr.*); def rvtest_mtrap_routine=True;
   csr_comb:
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr0")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr1")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr2")) ^ (pmpaddr0) == 0x00: 0
-    (pmpcfg0    & 0x80 == 0x80) and (old("pmpaddr3")) ^ (pmpaddr0) == 0x00: 0
+    (${rs2_val} && 0x023 == 0): 0
+    ? (pmpcfg0  & pmpcfg0   & 0x80 == 0x80) and ${csrrs} and lw and ${csrrx} and pmpcfg0
+      and (old("pmpaddr0"))and (old("pmpaddr0")) ^ (pmpaddr0)^ (pmpaddr0) == 0x00
+    : 0
+    ? (pmpcfg0  & pmpcfg1   & 0x80 == 0x80) and ${csrrs} and sw and ${csrrx} and pmpcfg0
+      and (old("pmpaddr1"))and (old("pmpaddr1")) ^ (pmpaddr0)^ (pmpaddr1) == 0x00
+    : 0
     (pmpcfg0 >> 0    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 0))     ^ (pmpcfg0 & (0xFF >> 0)) == 0x00: 0
-    (pmpcfg0 >> 16    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 16))     ^ (pmpcfg0 & (0xFF >> 16)) == 0x00: 0
-    (pmpcfg0 >> 24    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 24))     ^ (pmpcfg0 & (0xFF >> 24)) == 0x00: 0
-    (pmpcfg0 >> 8    & 0x80 == 0x80) and (old("pmpcfg0") & (0xFF << 8))     ^ (pmpcfg0 & (0xFF >> 8)) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr4")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr5")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr6")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1    & 0x80 == 0x80) and (old("pmpaddr7")) ^ (pmpaddr1) == 0x00: 0
-    (pmpcfg1 >> 0    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 0))     ^ (pmpcfg1 & (0xFF >> 0)) == 0x00: 0
-    (pmpcfg1 >> 16    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 16))     ^ (pmpcfg1 & (0xFF >> 16)) == 0x00: 0
-    (pmpcfg1 >> 24    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 24))     ^ (pmpcfg1 & (0xFF >> 24)) == 0x00: 0
+    (pmpcfg0 >> 1    & 0x80 == 0x80): 0
+    ? (pmpcfg1  & pmpcfg2   & 0x80 == 0x80) and ${csrrs} and ${csrrw} and ${csrrx}
+      and pmpcfg0 and (old("pmpaddr2"))and (old("pmpaddr2")) ^ (pmpaddr1)^ (pmpaddr2)
+      == 0x00
+    : 0
+    ? (pmpcfg1  & pmpcfg3   & 0x80 == 0x80) and ${csrrs} and lw and ${csrrx} and pmpcfg0
+      and (old("pmpaddr3"))and (old("pmpaddr3")) ^ (pmpaddr1)^ (pmpaddr3) == 0x00
+    : 0
+    (pmpcfg1 >> 1    & 0x80 == 0x80): 0
     (pmpcfg1 >> 8    & 0x80 == 0x80) and (old("pmpcfg1") & (0xFF << 8))     ^ (pmpcfg1 & (0xFF >> 8)) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr10")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr11")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr8")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2    & 0x80 == 0x80) and (old("pmpaddr9")) ^ (pmpaddr2) == 0x00: 0
-    (pmpcfg2 >> 0    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 0))     ^ (pmpcfg2 & (0xFF >> 0)) == 0x00: 0
+    ? (pmpcfg2  & pmpcfg4   & 0x80 == 0x80) and ${csrrs} and sw and ${csrrx} and pmpcfg1
+      and (old("pmpaddr4"))and (old("pmpaddr4")) ^ (pmpaddr2)^ (pmpaddr4) == 0x00
+    : 0
+    ? (pmpcfg2  & pmpcfg5   & 0x80 == 0x80) and ${csrrs} and ${csrrw} and ${csrrx}
+      and pmpcfg1 and (old("pmpaddr5"))and (old("pmpaddr5")) ^ (pmpaddr2)^ (pmpaddr5)
+      == 0x00
+    : 0
+    (pmpcfg2 >> 1    & 0x80 == 0x80): 0
     (pmpcfg2 >> 16    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 16))     ^ (pmpcfg2 & (0xFF >> 16)) == 0x00: 0
-    (pmpcfg2 >> 24    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 24))     ^ (pmpcfg2 & (0xFF >> 24)) == 0x00: 0
-    (pmpcfg2 >> 8    & 0x80 == 0x80) and (old("pmpcfg2") & (0xFF << 8))     ^ (pmpcfg2 & (0xFF >> 8)) == 0x00: 0
-    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr12")) ^ (pmpaddr3) == 0x00: 0
-    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr13")) ^ (pmpaddr3) == 0x00: 0
-    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr14")) ^ (pmpaddr3) == 0x00: 0
-    (pmpcfg3    & 0x80 == 0x80) and (old("pmpaddr15")) ^ (pmpaddr3) == 0x00: 0
-    (pmpcfg3 >> 0    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 0))     ^ (pmpcfg3 & (0xFF >> 0)) == 0x00: 0
-    (pmpcfg3 >> 16    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 16))     ^ (pmpcfg3 & (0xFF >> 16)) == 0x00: 0
+    ? (pmpcfg3  & pmpcfg6   & 0x80 == 0x80) and ${csrrs} and lw and ${csrrx} and pmpcfg1
+      and (old("pmpaddr6"))and (old("pmpaddr6")) ^ (pmpaddr3)^ (pmpaddr6) == 0x00
+    : 0
+    ? (pmpcfg3  & pmpcfg7   & 0x80 == 0x80) and ${csrrs} and sw and ${csrrx} and pmpcfg1
+      and (old("pmpaddr7"))and (old("pmpaddr7")) ^ (pmpaddr3)^ (pmpaddr7) == 0x00
+    : 0
+    (pmpcfg3 >> 2    & 0x80 == 0x80): 0
     (pmpcfg3 >> 24    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 24))     ^ (pmpcfg3 & (0xFF >> 24)) == 0x00: 0
-    (pmpcfg3 >> 8    & 0x80 == 0x80) and (old("pmpcfg3") & (0xFF << 8))     ^ (pmpcfg3 & (0xFF >> 8)) == 0x00: 0
+    ? (pmpcfg4  & pmpcfg8   & 0x80 == 0x80) and ${csrrs} and ${csrrw} and ${csrrx}
+      and pmpcfg2 and (old("pmpaddr8"))and (old("pmpaddr8")) ^ (pmpaddr4)^ (pmpaddr8)
+      == 0x00
+    : 0
+    ? (pmpcfg4  & pmpcfg9   & 0x80 == 0x80) and ${csrrs} and lw and ${csrrx} and pmpcfg2
+      and (old("pmpaddr9"))and (old("pmpaddr9")) ^ (pmpaddr4)^ (pmpaddr9) == 0x00
+    : 0
+    ? (pmpcfg5  & pmpcfg10   & 0x80 == 0x80) and ${csrrs} and sw and ${csrrx} and
+      pmpcfg2 and (old("pmpaddr10"))and (old("pmpaddr10")) ^ (pmpaddr5)^ (pmpaddr10)
+      == 0x00
+    : 0
+    ? (pmpcfg5  & pmpcfg11   & 0x80 == 0x80) and ${csrrs} and ${csrrw} and ${csrrx}
+      and pmpcfg2 and (old("pmpaddr11"))and (old("pmpaddr11")) ^ (pmpaddr5)^ (pmpaddr11)
+      == 0x00
+    : 0
+    ? (pmpcfg6  & pmpcfg12   & 0x80 == 0x80) and ${csrrs} and lw and ${csrrx} and
+      pmpcfg3 and (old("pmpaddr12"))and (old("pmpaddr12")) ^ (pmpaddr6)^ (pmpaddr12)
+      == 0x00
+    : 0
+    ? (pmpcfg6  & pmpcfg13   & 0x80 == 0x80) and ${csrrs} and sw and ${csrrx} and
+      pmpcfg3 and (old("pmpaddr13"))and (old("pmpaddr13")) ^ (pmpaddr6)^ (pmpaddr13)
+      == 0x00
+    : 0
+    ? (pmpcfg7  & pmpcfg14   & 0x80 == 0x80) and ${csrrs} and ${csrrw} and ${csrrx}
+      and pmpcfg3 and (old("pmpaddr14"))and (old("pmpaddr14")) ^ (pmpaddr7)^ (pmpaddr14)
+      == 0x00
+    : 0
+    ? (pmpcfg7  & pmpcfg15   & 0x80 == 0x80) and ${csrrs} and lw and ${csrrx} and
+      pmpcfg3 and (old("pmpaddr15"))and (old("pmpaddr15")) ^ (pmpaddr7)^ (pmpaddr15)
+      == 0x00
+    : 0
+    (rs1_val && 0x60 == 0x00): 0
     mcause == ${instruction_access_fault_cause} and mstatus == ${MMODE}: 0
   mnemonics:
     ${csrrs}: 0
