@@ -1,230 +1,480 @@
 #Translator -- defs(cgf/yaml based file --> cgf)
-import yaml
+import os
 import re
+import math
+import yaml
 '''
 *********************************************RULES****************************************************
-1. {start_digit ... end_digit} Anything written within these curly brackets with some 
-numbers in the pattern using three dots will be considered as a set of numbers and will
-be repeated depending upon on the start_digit and end_digit.
-    example: pmpcfg{0 ... 10} then 10 coverpoints will be written starting from pmpcfg0
-    for the first coverpoint and ending with pmpcfg10 as the last/10th coverpoint. You 
-    may use something like pmpcfg{10 ... 14} or any other value as well.
 
-2. ${} means we want to use something from the macros(constants of coverpoints itself)
-which is already defined in the macros.yaml --> This feature is already available in 
-the risc-v isac . PR#80
+1. {start_digit ... end_digit}:
+   - Anything within curly brackets containing numbers separated by three dots will be considered a range.
+   - The range will generate coverpoints from start_digit to end_digit, inclusive.
+   - Example: pmpcfg{0 ... 10} will generate coverpoints from pmpcfg0 to pmpcfg10.
 
-3. $number where <number> is any digit refering to the {} curly brackets values defined
-in that line/coverpoint.
-    example: Consider a coverpoint written in the pattern:
-            (pmpcfg{0 ... 10} >> 8 & pmpcfg{5 ... 8}) and (pmpcfg$1 >> 4 & 0x90) and (pmpcfg$2) == 0   
-            Note: This is just for an example.
-    So, in this case, pmpcfg$1 refers to the current value being used in the pmpcfg{0 ... 10} and
-    pmpcfg$2 refers to the current value being used in the pmpcfg{5 ... 8}
-    Note:
-        You can't use the coverpoint like pmpcfg{0,1,2} to generate three coverpoints with registers
-        pmpcfg0,pmpcfg1,pmpcfg2. Even if you want to generate two coverpoints, you need to follow the
-        pattern like pmpcfg{0 ... 1}.
+2. ${} Macro Usage:
+   - Use ${} to reference macros defined in macros.yaml.
+   - They are not dealt in this script, will be resolved in the RISC-V ISAC
+   - Macros are constants or predefined coverpoint values.
+   - Example: ${MACRO_NAME}
 
-4. {value1, value 2, value3} Anything written this way will be repeated as a coverpoint depending 
-upon the values written in the {} curly brackets. So, this may be considered as a loop.
-    example: consider a coverpoint written in the following fashion:
-            "{lw, sw, csrrs, csrrw, csrrc}": 0
-            "{(rs1_val && 0x60 == 0x00),(rs2_val && 0x023 == 0)}" : 0
-    So, it will be translated as for the first coverpoint:
-            lw: 0
-            sw: 0
-            csrrw: 0
-            csrrs: 0
-    And for the second coverpoint:
-            (rs1_val && 0x60 == 0x00): 0
-            (rs2_val && 0x23 == 0x00): 0
-    Note:
-        You can't use the coverpoints which need to be enumerated in 4th point format.
+3. $number Placeholder:
+   - Use $number to refer to values from curly brackets in the same line.
+   - Each $number corresponds to a value in the curly brackets in order of appearance.
+   - Example: (pmpcfg{0 ... 10} >> 8) and (pmpcfg$1 == 0x80)
 
-5. {val1, val2, end_val *number_of_time} is  to be used in the
-    coverpoints not independently like in the point 4(as there will be no purpose because it will
-    repeat)
-    Example:
-            (pmpcfg{0 ... 3} >> {0, 8, 16, 24 *4}    & 0x80 == 0x80) == 0x00: 0
-    Now, {0, 8, 16, 24 *4} will be enumerated such that {0,0,0,0,8,8,8,8,.....,24,24,24,24}
-    Note:
-        $number functionality is only available for the point 1 and 4 and can not be used with point 5 and
-        6 to avoid complexity.
+4. {value1, value2, ...} Loop:
+   - Lists enclosed in curly brackets will generate coverpoints by iterating through values.
+   - Each value will be used as a coverpoint.
+   - Example: "{lw, sw, csrrw}": 0 will generate coverpoints for lw, sw, and csrrw.
 
-6. {val1 ... end_val *number_of_time} This is simply the advanced version of point 1. So, we can repeat
-    the each value that comes in the loop multiple time. 
-    Example:
-        (pmpcfg{0 ... 3 *4}    & 0x80 == 0x80) and (old("pmpaddr{0 ... 15}")) ^ (pmpaddr$1) == 0x00: 0
-    So {0 ... 3 *4} will be repeated such that {0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3}
+5. {{val1, val2, end_val} <operation> <digit>} Enumeration with Operation:
+   - Use double curly brackets with an operation to enumerate values.
+   - Values will be enumerated based on the specified operation and digit.
+   - Example: {{0, 8, 16, 24} >> 4} will enumerate values {0, 0, 1, 1}.
+
+6. {{val1 ... end_val} <operation> <digit>} Advanced Range Enumeration:
+   - Advanced version of point 1 allowing repeated values in the range.
+   - Each value in the range will be repeated based on the specified operation and digit.
+   - Example: {{0 ... 3} * 4} will generate {0, 4, 8, 12}.
 
 ****************************************************************************************************
 '''
 
 class Translator:
+    """A class for translating YAML data and generating coverpoints."""
+
     def __init__(self):
+        """Initialize the Translator object."""
         self.defs_data = None
         self.data_yaml = None
-        self.macros    = None
+        self.replacement_dict = {}
+        self.replacement_dict_resolved = {}
+        self.number_replace_order = {}
+        self.curr_cov = None
+        self.label = None
 
         self.braces_finder          = re.compile(r'({.*?})')
-        self.macro_def_finder       = re.compile(r'(\${.*?})') # To ignore any such definition
-        self.number_brace_finder    = re.compile(r'(\$\d+)')
-        self.macro_brace_resolver   = re.compile(r'(\%\d+)')
+        self.multi_brace_finder     = re.compile(r'({\s*{.*?}.*?})')
+        self.macro_def_finder       = re.compile(r'(\${.*?})') # ${variable}To ignore any such definition
+        self.number_brace_finder    = re.compile(r'(\$\d+)')   # $1
+        self.macro_brace_resolver   = re.compile(r'(\%\d+)')   # 
         self.repeat_brace_index     = re.compile(r'(\*\d+)')
+        self.placeholder_pattern = re.compile(r'<<MULTI\d+>>|<<SINGLE\d+>>|<<COMMA\d+>>')
 
-    def file_handler(self, input_path):
-        with open(input_path, 'r') as file:
-            yaml_data = yaml.safe_load(file)
-        self.defs_data = yaml_data
-    
+    def translate(self, input_path, output_path):
+        """Translate YAML data from the input file and dump it into the output file.
+        
+        Args:
+            input_path (str): Path to the input YAML file.
+            output_path (str): Path to save the translated YAML data.
+        """
+        self.load_yaml(input_path)
+        self.evaluate_cp()
+        self.dump_data(output_path, self.data_yaml)
+
+    def load_yaml(self, input_path):
+        """Load YAML data from the given file path.
+
+        Args:
+            input_path (str): Path to the YAML file to load.
+
+        Raises:
+            FileNotFoundError: If the specified file is not found.
+        """
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"{input_path} does not exist.")
+        try:
+            with open(input_path, 'r') as file:
+                yaml_data = yaml.safe_load(file)
+            self.defs_data = yaml_data
+        except Exception as e:
+            print(f"Failed to load YAML file: {e}")
+
     def dump_data(self, output_path, yaml_data):
-        with open(output_path, 'w') as file:
-            yaml.dump(yaml_data, file)
+        """Dump the given YAML data into the specified file.
+
+        Args:
+            output_path (str): Path to save the YAML data.
+            yaml_data (dict): YAML data to be dumped.
+
+        Raises:
+            Exception: If an error occurs while writing data to the file.
+        """
+        try:
+            with open(output_path, 'w') as file:
+                yaml.dump(yaml_data, file)
+        except Exception as e:
+            print(f"Failed to write data to file: {e}")
 
     def evaluate_cp(self):
+        """Evaluate coverpoints based on the loaded YAML data."""
         self.data_yaml = None
         for curr_cov in self.defs_data:
             self.data_yaml = {curr_cov: {}}
             for label in self.defs_data[curr_cov]:
                 self.finder(curr_cov,label)
 
-    #This function will take a single line and try to find the available combinations/rules
-    #and will solve them using multiple solvers, each meant for specific purpose and solve them
-    #parallely and hence reducing the time, by passing it the rules.
-    def finder(self,curr_cov, label):
-        #Line contains all the instructions under the label. But, we need a instr at a specific time
-        line = (self.defs_data[curr_cov][label])
-        if type(line) == dict:
-            for instr, values in line.items():                
-                cond_comma_loop = False
-                repeat_list = []
-                macros = self.macro_def_finder.findall(instr)     
-                self.macros = macros
-                #replace the macros to be solved in RISC-V ISAC with some defined values and replace them back after the process
-                for index, macro in enumerate(macros):
-                    if macro in instr:
-                        instr = instr.replace(macro, f'%{index}')
+    def finder(self, curr_cov, label):
+        """
+        Find combinations/rules in a single line and solve them using multiple solvers.
 
-                braces = self.braces_finder.findall(instr)
-                number_brace = self.number_brace_finder.findall(instr)       
+        Args:
+            curr_cov (str): The current coverpoint.
+            label (str): The label within the coverpoint.
 
-                #Now, let's seperate everything.
-                for val in braces:
-                    if "..." in val:
-                        repeat_list.append(val)
+        Returns:
+            None
+        """
+        self.curr_cov = curr_cov
+        self.label = label
+        line = self.defs_data[curr_cov][label]
+        if isinstance(line, dict):
+            for instr in line:
+                # Clean replacement dict on every iteration
+                self.replacement_dict = {}
 
-                for def_rule in repeat_list:
-                    if def_rule in braces:
-                        braces.remove(def_rule)
-                comma_sep_list = braces
-                if len(comma_sep_list) != 0:
-                    if instr == comma_sep_list[0]:
-                        cond_comma_loop = True
-                        comma_sep_list_braces = []
-                    else:
-                        comma_sep_list_braces = braces
-                else:
-                    comma_sep_list_braces = []
-                #Now if we have neither of the rule matches we will
-                #generate the coverpoint using the generator
-                if len(repeat_list) == 0 and len(number_brace) == 0 and len(braces) == 0:
-                    instr = self.macro_resolver(instr)
+                # Process macros
+                macros = self.macro_def_finder.findall(instr)
+                instr = self.replace_macros(instr, macros)
+
+                # Process multibraces
+                instr = self.replace_multibraces(instr)
+
+                # Process single braces and comma-separated values
+                instr = self.replace_braces_commas(instr)
+
+                # Process $number placeholders
+                instr = self.replace_number_placeholders(instr)
+
+                # Check the order of every brace and maintain with the $number placeholder
+                place_holder_pattern = self.replace_order_pattern(instr)
+
+                # Resolve every brace found in the string
+
+                # Resolve the single braces and multi_internal braces
+                self.resolve_single_brace(self.replacement_dict)
+
+                # Resolve the multibraces
+                self.resolve_multibraces(self.replacement_dict)
+
+                # Resolve the comma separated
+                self.resolve_comma_brace(self.replacement_dict)
+
+                # Substitute the values in the coverpoint
+
+                # Complete the coverpoint process
+                self.calculate_coverpoints(instr, self.replacement_dict, place_holder_pattern)
+
+                # If there is no substitution, then generate
+                if len(self.replacement_dict) == 0:
                     self.generator(curr_cov, label, instr, 1)
 
-                #For the case of comma seperated coverpoints/variables in {} curly braces
-                elif len(comma_sep_list) != 0 and len(number_brace) == 0 and cond_comma_loop == True:
-                    self.comma_sep_solver(curr_cov, label, comma_sep_list)
-
-                elif len(repeat_list) != 0:
-                    self.curly_braces_solver(curr_cov, label, instr, repeat_list, number_brace, comma_sep_list_braces)
-
+        # Generate the coverpoint not of interest
         else:
             self.generator(curr_cov, label, line, 0)
 
-    #This function will solve all the  curly braces and the $ numbers in parallel. So, their coverpoints will be generated
-    #using this function.
-    def curly_braces_solver(self, curr_cov, label, instr, repeat_list, number_brace, comma_sep_list):
-        #instr --> current specific instruction coverpoint under observation
-        #label --> label of the coverpoint
-        #curr_cov --> current coverpoint tag
-        #repeat_list --> contains the data of all the { ... }
-        #number_brace --> the numbers which are dependent on the brace
-        diff_dict = {}
-        diff= 0
-        instr_list = []
-        repeat_brace_index = self.repeat_brace_index.findall(instr)
+    def replace_macros(self, instr, macros):
+        """
+        Replace macros in the instruction with placeholders.
 
-        for index, val in enumerate(repeat_list):
-            repeat_repititions = 0
-            for repeat in repeat_brace_index:
-                if repeat in val:
-                    repeat_repititions = repeat.replace('*', '')
-                    val = val.replace(repeat, '')
+        Args:
+            instr (str): The instruction string.
+            macros (list): List of macros to replace.
 
-            splitter = val.replace('{', '').replace('}', '').strip()
-            splitter = splitter.split('...')
+        Returns:
+            str: The instruction string with macros replaced.
+        """
+        macro_dict = {macro: f'<<MACRO{index}>>' for index, macro in enumerate(macros)}
+        instr, replacements = self.replace_using_dict(instr, macro_dict)
+        self.replacement_dict.update(replacements)
+        return instr
 
-            if repeat_repititions != 0:
-                diff_calc = (((int(splitter[1])+1)*int(repeat_repititions)) - int(splitter[0]))-1
-                diff_dict[index] =  (int(splitter[0]), int(splitter[1]), int(repeat_repititions))
+    def replace_multibraces(self, instr):
+        """
+        Replace multibraces in the instruction with placeholders.
+
+        Args:
+            instr (str): The instruction string containing multibraces.
+
+        Returns:
+            str: The instruction string with multibraces replaced.
+        """
+        replacements = {}
+        global_multi_index = 0
+
+        def replace_braces(match, instr_string):
+            nonlocal replacements, global_multi_index
+            instr = instr_string
+            multi_braces = match.group(0)
+            internal_braces = self.braces_finder.findall(multi_braces[1:-1])
+            for index, brace in enumerate(internal_braces):
+                placeholder = f'<<MULTI_INTER{global_multi_index}>>'
+                instr = instr.replace(brace, placeholder)
+                replacements[placeholder] = brace
+            placeholder = f'<<MULTI{global_multi_index}>>'
+            instr = instr.replace(multi_braces, placeholder)
+            replacements[placeholder] = multi_braces
+            global_multi_index += 1
+            return placeholder
+
+        instr = re.sub(self.multi_brace_finder, lambda match: replace_braces(match, instr), instr)
+        self.replacement_dict.update(replacements)
+        return instr
+
+    def replace_braces_commas(self, instr):
+        """
+        Replace single braces and comma-separated values in the instruction with placeholders.
+
+        Args:
+            instr (str): The instruction string containing single braces and comma-separated values.
+
+        Returns:
+            str: The instruction string with single braces and comma-separated values replaced.
+        """
+        braces = self.braces_finder.findall(instr)
+        comma  = [val for val in braces if "..." not in val]
+        braces = [val for val in braces if "..." in val]
+        comma_dict = {val: f'<<COMMA{index}>>' for index, val in enumerate(comma)}
+        single_dict = {val: f'<<SINGLE{index}>>' for index, val in enumerate(braces)}
+        instr, replacements = self.replace_using_dict(instr, {**comma_dict, **single_dict})
+        self.replacement_dict.update(replacements)
+        return instr
+
+    def replace_number_placeholders(self, instr):
+        """
+        Replace $number placeholders in the instruction string with unique placeholders.
+
+        Args:
+            instr (str): The instruction string containing $number placeholders.
+
+        Returns:
+            str: The instruction string with $number placeholders replaced.
+        """
+        # Create a dictionary to store the replacements for each unique $number
+        replace_dict = {}
+        for index, match in enumerate(self.number_brace_finder.finditer(instr)):
+            number = match.group(0)
+            # If the number is encountered for the first time, create a new placeholder
+            if number not in replace_dict:
+                replace_dict[number] = f'<<NUMBER{len(replace_dict)}>>'
+        # Use the replace_using_dict method to perform the replacements
+        instr, replacements = self.replace_using_dict(instr, replace_dict)
+        # Update the replacement dictionary with the placeholders and their original values
+        self.replacement_dict.update(replacements)
+        return instr
+
+    def resolve_single_brace(self, replacement_dict):
+        """
+        Resolve single braces and multi_internal braces in the replacement dictionary.
+
+        Args:
+            replacement_dict (dict): A dictionary containing keys with placeholders and values to be resolved.
+
+        Raises:
+            ValueError: If the input for a placeholder is invalid or if digits are not found in the value.
+
+        Returns:
+            None
+        """
+        for key, val in replacement_dict.items():
+            if ("MULTI_INTER" in key or "SINGLE" in key ): #solve the comma seperated digits as well
+                digits = re.findall(r'\d+', val)
+                comma_sep_num = re.findall(r'\{\d+(?:, \d+)*\}', val)
+                if digits:
+                    if len(digits) == 2 and int(digits[0]) <= int(digits[1]):
+                        start, end = map(int, digits)
+                        result = list(range(start, end + 1))
+                        replacement_dict[key] = result
+                    elif len(digits) > 2 and comma_sep_num:
+                            values = list(map(int, digits))
+                            replacement_dict[key] = values
+                    else:
+                        raise ValueError(f"Invalid input for key {val}: Expected a valid range of integers")
+                else:
+                    raise ValueError(f"Digits not found in the value for key {val}.")
+
+        self.replacement_dict = replacement_dict
+
+    def resolve_multibraces(self, replacement_dict):
+        """
+        Resolve multibraces in the replacement dictionary.
+
+        Args:
+            replacement_dict (dict): A dictionary containing keys with placeholders and values to be resolved.
+
+        Raises:
+            ValueError: If the range pattern is not found in the value, if the start of the range is greater than the end,
+                if an invalid operation is specified, or if the digit value is invalid.
+
+        Returns:
+            None
+        """
+        for key, val in replacement_dict.items():
+            if "MULTI" in key and not "MULTI_INTER" in key :
+                range_match = re.search(r'{(\d+)\s*\.\.\.\s*(\d+)}', val)
+                operation_match = re.search(r'([+\-*/]|<<|>>)\s*(\d+)', val)
+                comma_sep_num = re.findall(r'\{\d+(?:, \d+)*\}', val)
+                if range_match:
+                    start, end = map(int, range_match.groups())
+                    if start <= end:
+                        range_list = list(range(start, end + 1))
+                        if operation_match:
+                            operation, digit = operation_match.groups()
+                            try:
+                                digit = int(digit)
+                            except ValueError:
+                                raise ValueError(f"Invalid digit value for key {val}.")
+                            result_list = self.apply_operation(range_list, operation, digit)
+                            replacement_dict[key] = result_list
+                        else:
+                            raise ValueError(f"No operation found for key {val}!")
+                    else:
+                        raise ValueError(f"Invalid range for key {val}: Start must be less than or equal to end.")
+                elif comma_sep_num:
+                    internal_digits_list = re.findall(r'\d+', comma_sep_num[0])
+                    internal_digits_list = list(map(int, internal_digits_list))
+                    if operation_match:
+                        operation, digit = operation_match.groups()
+                        result_list = self.apply_operation(internal_digits_list, operation, digit)
+                        replacement_dict[key] = result_list
+                    else:
+                        raise ValueError(f"No operation found for key {val}!")
+                else:
+                    raise ValueError(f"Range pattern not found in the value for key {val}.")
+                
+        self.replacement_dict = replacement_dict
+
+    def resolve_comma_brace(self, replacement_dict):
+        """
+        Resolve comma-separated values in the replacement dictionary.
+
+        Args:
+            replacement_dict (dict): A dictionary containing keys with placeholders and comma-separated values as strings.
+
+        Raises:
+            ValueError: If the comma pattern is invalid.
+
+        Returns:
+            None
+        """
+        for key, val in replacement_dict.items():
+            if "COMMA" in key and isinstance(val, str):
+                comma_pattern = r'{(.*?)}'
+                comma_match = re.findall(comma_pattern, val)
+                if comma_match:
+                    values = [value.strip() for value in comma_match[0].split(',')]
+                    replacement_dict[key] = values
+                else:
+                    raise ValueError(f"Invalid Comma Pattern for {val}")
+
+        self.replacement_dict = replacement_dict
+
+    def calculate_coverpoints(self, instr, replacement_dict, place_holder_pattern):
+        """
+        Calculate coverpoints based on the provided instructions, replacement dictionary, and placeholder pattern.
+
+        Args:
+            instr (str): The instruction string.
+            replacement_dict (dict): A dictionary containing keys with placeholders and their corresponding values.
+            place_holder_pattern (list): A list containing the modified order of placeholders.
+
+        Returns:
+            None
+        """
+        # Create a Track Dictionary of the current variables
+        track_dict = {}
+        # Populate the dictionary with the proper indexes
+        track_dict = self.initialize_track_dict(track_dict, replacement_dict) 
+        # Initialize max_len
+        max_len= 0
+        # Check if replacement_dict is not empty
+        if replacement_dict:
+            # Find the maximum length and key where the value is a list
+            max_list_values = [(len(val)) for val in replacement_dict.values() if isinstance(val, list)]
+            if max_list_values:
+                max_len = max(max_list_values)
             else:
-                diff_calc = ((int(splitter[1])) - int(splitter[0]))
-                diff_dict[index] =  (int(splitter[0]), int(splitter[1]), int(repeat_repititions))
+                #In Case, there is no list but we have coverpoints
+                max_len = 1
 
-            if diff_calc > diff:
-                diff = diff_calc
-        #Now, solve the comma_seperated_braces
-        resolved_comma_sep_dict = {}
-        if len(comma_sep_list) != 0:
-            for ind, val in enumerate(comma_sep_list):
-                resolved_comma_sep_dict[ind] = self.comma_sep_brace_solver(val)
-        size_loop = diff
-        for ind, val in resolved_comma_sep_dict.items():
-            size = len(val)
-            if (size_loop) < size:
-                size_loop = size -1
+        # Now max_len and max_key will contain the maximum length and corresponding key
 
-        track_dict_braces = {}
-        track_dict_comma = {}
+        gen_cov_list = []
 
-        for index, (key, value) in enumerate(diff_dict.items()):
-            track_dict_braces[index] = [value[0],value[1], value[2], value[0], value[0]]  #start_value, max_value, repeat_count, current_value, current_repeat_value -> initialize with start_value
+        for index in range(max_len):
+            
+            # Generate coverpoint for current track
+            out_cov = self.generate_current_cov(instr, track_dict, replacement_dict, place_holder_pattern)
 
-        for index, (key, val) in enumerate(resolved_comma_sep_dict.items()):
-            track_dict_comma[index] = [len(val), 0]                                       #max_index, current index-> start from zero
+            # Update the state of the track_dict
+            track_dict = self.update_replacement_dict(track_dict)
 
-        for i in range(size_loop+1):
-            old = instr
+            gen_cov_list.append(out_cov)
 
-            for key, item in enumerate(repeat_list):
-                new=old.replace(item,str(track_dict_braces[key][3]))  #replace with the current value
-                old = new
+        for coverpoint in gen_cov_list:
+            self.generator(self.curr_cov, self.label, f"{coverpoint}", 1)
 
-            #index of number_brace is linked with the track_dict, so no need for seperate track
-            for k in range(len(number_brace)):
-                new=old.replace(number_brace[k], str(track_dict_braces[int((number_brace[k])[1:])-1][3]))
-                old = new
-            # Now, let's keep track of the macro_sep_dict
-            for index,val in enumerate(comma_sep_list):
-                new = old.replace(val, resolved_comma_sep_dict[index][track_dict_comma[index][1]])
-                old  = new
+    def generate_current_cov(self, instr, track_dict, replacement_dict, place_holder_pattern):
+        """
+        Generate coverpoints for the current instruction based on the track dictionary, replacement dictionary,
+        and placeholder pattern.
 
-            track_dict_braces = self.increment(track_dict_braces)
-            track_dict_comma = self.increment_comma(track_dict_comma)
-            instr_list.append(old)
+        Args:
+            instr (str): The instruction string.
+            track_dict (dict): A dictionary containing the current track of variables.
+            replacement_dict (dict): A dictionary containing keys with placeholders and their corresponding values.
+            place_holder_pattern (list): A list containing the modified order of placeholders.
 
-        for instruction in instr_list:
-            resolved_instr = self.macro_resolver(instruction)
-            self.generator(curr_cov, label, f"{resolved_instr}", 1)
+        Returns:
+            str: The generated coverpoint.
+        """
+        number_pattern = re.compile('\d+')
 
-    def comma_sep_solver(self, curr_cov, label, comma_sep):
-        comma_sep = [cov.strip() for cov in comma_sep[0][1:-1].split(',')]
-        for cov in comma_sep:
-            cov = self.macro_resolver(cov)
-            self.generator(curr_cov, label, cov, 1)
+        for key, val in replacement_dict.items():
+            
+            #Resolve the MULTI_BRACES back
+            if "MULTI" in key and "MULTI_INTER" not in key:
+                curr_index = track_dict[key][2]
+                instr = instr.replace(key, str(val[curr_index]))
+
+            #Resolve the Single braces back
+            if "SINGLE" in key:
+                curr_index = track_dict[key][2]
+                instr = instr.replace(key, str(val[curr_index]))
+
+            # Resolve the Comma Seperated back
+            if "COMMA" in key:
+                curr_index = track_dict[key][2]
+                instr = instr.replace(key, str(val[curr_index]))
+
+            #Resolve the dependent placeholders
+            if "NUMBER" in key:
+                result = number_pattern.findall(val)
+                result = int(result[0]) -1
+                var = place_holder_pattern[result]
+                curr_index = track_dict[var][2]
+                instr = instr.replace(key, str(replacement_dict[var][curr_index]))
+
+        # Resolve back the macros
+        for key, val in replacement_dict.items():
+            if "MACRO" in key:
+                instr = instr.replace(key, val)
+
+        return instr
 
     def generator(self, curr_cov, label, line, rule):
+        """
+        Generates the required coverpoint and appends it to the existing one in the data YAML.
+
+        Args:
+            curr_cov (str): The current coverpoint.
+            label (str): The label of the coverpoint.
+            line (str): The coverpoint line to be generated.
+            rule (int): The rule indicating whether to append to the existing coverpoint or create a new one.
+
+        Returns:
+            None
+        """
         if rule == 0:
             self.data_yaml[curr_cov][label] = line
         elif rule == 1:
@@ -234,81 +484,125 @@ class Translator:
                 self.data_yaml[curr_cov][label] = {}
                 self.data_yaml[curr_cov][label][line] = 0
 
-    def translate(self, input_path, output_path):
-        self.file_handler(input_path)
-        self.evaluate_cp()
-        self.dump_data(output_path, self.data_yaml)
 
-    #This function will replace the macros back in the instruction
-    def macro_resolver(self, instr):
-        if len(self.macros) != 0:
-            replace_macros = self.macro_brace_resolver.findall(instr)
-            for index, value in enumerate(replace_macros):
-                instr = instr.replace(value, self.macros[index])
 
-        return instr
+    """Helper Functions"""
+    def replace_using_dict(self, instr, replace_dict):
+        """
+        Replace substrings in the instruction string based on the provided dictionary.
 
-    def comma_sep_brace_solver(self, comma_sep_list):
-        repeat_brace_index = self.repeat_brace_index.findall(comma_sep_list)
-        repeat_len = 0
-        if repeat_brace_index:
-            repeat_len = int(repeat_brace_index[0].replace('*', ''))
-            comma_sep_list = comma_sep_list.replace(repeat_brace_index[0], '')
-        comma_sep = [cov.strip() for cov in comma_sep_list[1:-1].split(',')]
+        Args:
+            instr (str): The instruction string to perform replacements on.
+            replace_dict (dict): A dictionary containing substrings to replace as keys and their replacements as values.
 
-        return_list = []
-        curr_val = 0
-        curr_index = 0
-        if repeat_brace_index:
-            for index in range(len(comma_sep)*repeat_len):
-                if curr_val < (repeat_len -1):
-                    curr_val +=1
-                    return_list.append(comma_sep[curr_index])
-                else:
-                    return_list.append(comma_sep[curr_index])
-                    curr_val = 0
-                    curr_index +=1
-        else:
-            return comma_sep
+        Returns:
+            tuple: A tuple containing the modified instruction string and a dictionary of replacements made.
+        """
+        if not replace_dict:
+            return instr, {}
+        
+        replacements = {}
+        def replace(match):
+            replacement = replace_dict[match.group(0)]
+            replacements[replacement] = match.group(0)
+            return replacement
+        instr = re.sub('|'.join(map(re.escape, replace_dict.keys())), replace, instr)
+        return instr, replacements
 
-        return return_list        
+    def replace_order_pattern(self, instr):
+        """
+        Modify the order of placeholders in the instruction string based on the order of appearance.
 
-    #helper functions
-    #Takes a dictionary in the form {index: [start, end, current]} and just need to update
-    def increment(self, dict_to_update):
-        for key, value in dict_to_update.items():
-            if value[4] < (value[2] -1):                #current repeat value has not reached the max repeat value
-                new_value = value.pop(4)                #pop the previous current value
-                value.append(new_value+1)               #update with the new value at the end of the list
+        Args:
+            instr (str): The instruction string containing placeholders.
 
-            else:                                       #current repeat value >= max repeat value
-                if value[3] < value[1]:                 #current value < max_value
-                    del value[4]                        #delete the value of current_repeat_value
-                    new_value = value.pop(3)            #delete the current value
-                    value.append(new_value+1)           #Update the current value by 1
-                    value.append(value[0])              #change the current_repeat_value to zero
-                else:
-                    del value[4]                        #delete the value of current_repeat_value
-                    new_value = value.pop(3)            #delete the current value
-                    value.append(value[0])              #change the current_value to zero
-                    value.append(value[0])              #change the current_repeat_value to zero
+        Returns:
+            list: A list containing the modified order of placeholders.
+        """
+        placeholders = self.placeholder_pattern.findall(instr)
+        sorted_placeholders = sorted(placeholders, key=lambda x: instr.index(x))
+        
+        # Create a new list to store the modified order of placeholders
+        modified_placeholders = []
 
-        return dict_to_update
+        for val in sorted_placeholders:
+            if "MULTI" in val:
+                digit_match = re.search(r'\d+', val)
+                if digit_match:
+                    digit = digit_match.group(0)
+                    modified_placeholders.append(f'<<MULTI_INTER{digit}>>')
 
-    def increment_comma(self, dict_to_update):
-        for key, value in dict_to_update.items():
-            if (value[1] < (value[0] -1)):
-                new_value = value.pop(1)
-                value.append(new_value+1)
+            modified_placeholders.append(val)
+
+        return (modified_placeholders)
+
+    def initialize_track_dict(self, track_dict, replacement_dict):
+        """
+        Initializes the track dictionary with proper indexes for the elements in the replacement dictionary.
+
+        Args:
+            track_dict (dict): The track dictionary to be initialized.
+            replacement_dict (dict): The replacement dictionary containing elements for indexing.
+
+        Returns:
+            dict: The initialized track dictionary.
+        """
+        for key, val in replacement_dict.items():
+            if isinstance(val, list):
+                start_index, end_index, curr_index = 0, len(val), 0
+                track_dict[key] = [start_index, end_index, curr_index]                
+
+        return track_dict
+
+    def update_replacement_dict(self, track_dict):
+        """
+        Updates the current index in the track dictionary for iterating over replacement dictionary elements.
+
+        Args:
+            track_dict (dict): The track dictionary containing index information.
+
+        Returns:
+            dict: The updated track dictionary.
+        """
+        for key, val in track_dict.items():
+            if val[2] < val[1] -1:                     #current index < end index
+                val[2] += 1
             else:
-                del value[1]
-                value.append(0)                        #start from index 0
+                val[2] = val[0]
 
-        return dict_to_update
+        return track_dict
+
+    def apply_operation(self, range_list, operation, digit):
+        """
+        Applies the specified operation to each element in the range list.
+
+        Args:
+            range_list (list): The list of numbers to apply the operation to.
+            operation (str): The operation to apply (e.g., '+', '-', '*', '/', '<<', '>>').
+            digit (int): The operand to use in the operation.
+
+        Returns:
+            list: The list of numbers after applying the operation and floor function to each element.
+
+        Raises:
+            ValueError: If the operation is invalid.
+        """
+        try:
+            result_list = [eval(f"x {operation} {digit}") for x in range_list]
+            # Applying the floor operation to each element in the result list
+            result_list_floor = [math.floor(num) for num in result_list]
+            return result_list_floor
+        except SyntaxError:
+            raise ValueError("Invalid operation.")
+
+
+
+
+
+
+
 if __name__ == "__main__":
     defs_path = '/home/hammad/wrapper_cgf/Wrapper-cgf/config.defs'
     cgf_path  = '/home/hammad/wrapper_cgf/Wrapper-cgf/output.cgf'
     trans = Translator()
     trans.translate(defs_path, cgf_path)
-
-    
